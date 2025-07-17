@@ -24,12 +24,8 @@ from pydantic import BaseModel
 from config import get_config
 import aiohttp
 
-# Load environment variables from .env file (if it exists)
-try:
-    load_dotenv()
-except Exception:
-    # In Azure App Service, .env file might not exist - that's ok
-    pass
+# Load environment variables from .env file
+load_dotenv()
 
 # Get configuration based on environment
 config = get_config()

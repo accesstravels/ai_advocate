@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Azure Search Configuration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .config-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест Azure Search Configuration</h1>
+    
+    <div class="config-card">
+        <h2>Конфигурация Azure Search</h2>
+        <div id="configStatus"></div>
+        <button onclick="testConfiguration()">Проверить конфигурацию</button>
+        <button onclick="testSearchQuery()">Тестовый поиск</button>
+    </div>
+
+    <div class="config-card">
+        <h2>Результаты тестирования</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        let config = {};
+
+        // Загружаем конфигурацию
+        async function loadConfig() {
+            try {
+                const response = await fetch('/internal/config');
+                config = await response.json();
+                
+                const statusDiv = document.getElementById('configStatus');
+                let html = '<h3>📋 Текущая конфигурация:</h3>';
+                
+                // Проверяем Azure Search параметры
+                const searchParams = [
+                    'azure_search_endpoint',
+                    'azure_search_api_key',
+                    'azure_search_index_name'
+                ];
+                
+                searchParams.forEach(param => {
+                    const value = config[param];
+                    const status = value ? 'success' : 'error';
+                    const icon = value ? '✅' : '❌';
+                    html += `<div class="status ${status}">${icon} ${param}: ${value || 'НЕ НАСТРОЕНО'}</div>`;
+                });
+                
+                // Проверяем системный промпт
+                const systemPrompt = config.azure_system_prompt;
+                const promptStatus = systemPrompt ? 'success' : 'error';
+                const promptIcon = systemPrompt ? '✅' : '❌';
+                html += `<div class="status ${promptStatus}">${promptIcon} azure_system_prompt: ${systemPrompt ? 'НАСТРОЕН' : 'НЕ НАСТРОЕН'}</div>`;
+                
+                statusDiv.innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('configStatus').innerHTML = 
+                    `<div class="status error">❌ Ошибка загрузки конфигурации: ${error.message}</div>`;
+            }
+        }
+
+        async function testConfiguration() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<h3>🔄 Тестирование...</h3>';
+            
+            let html = '<h3>📊 Результаты проверки:</h3>';
+            
+            // Проверяем наличие всех необходимых параметров
+            const required = ['azure_search_endpoint', 'azure_search_api_key', 'azure_search_index_name'];
+            const missing = required.filter(param => !config[param]);
+            
+            if (missing.length > 0) {
+                html += `<div class="status error">❌ Отсутствуют обязательные параметры: ${missing.join(', ')}</div>`;
+                html += `<div class="status info">💡 Для работы с базой знаний нужно настроить все параметры Azure Search в переменных окружения</div>`;
+            } else {
+                html += `<div class="status success">✅ Все параметры Azure Search настроены</div>`;
+                
+                // Проверяем доступность endpoint
+                try {
+                    const testUrl = `${config.azure_search_endpoint}/indexes/${config.azure_search_index_name}?api-version=2023-10-01-Preview`;
+                    const response = await fetch(testUrl, {
+                        method: 'GET',
+                        headers: {
+                            'api-key': config.azure_search_api_key,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const indexInfo = await response.json();
+                        html += `<div class="status success">✅ Индекс доступен: ${indexInfo.name}</div>`;
+                        html += `<div class="status info">📋 Количество полей: ${indexInfo.fields.length}</div>`;
+                    } else {
+                        html += `<div class="status error">❌ Индекс недоступен: ${response.status} ${response.statusText}</div>`;
+                    }
+                } catch (error) {
+                    html += `<div class="status error">❌ Ошибка подключения к индексу: ${error.message}</div>`;
+                }
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        async function testSearchQuery() {
+            const resultsDiv = document.getElementById('testResults');
+            
+            if (!config.azure_search_endpoint || !config.azure_search_api_key) {
+                resultsDiv.innerHTML = '<div class="status error">❌ Azure Search не настроен</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<h3>🔄 Выполняем тестовый поиск...</h3>';
+            
+            try {
+                // Тестовый запрос к OpenAI с Azure Search
+                const testQuery = "Расскажи о наших юридических услугах";
+                const requestBody = {
+                    messages: [
+                        { role: 'system', content: config.azure_system_prompt || 'Ты юридический помощник.' },
+                        { role: 'user', content: testQuery }
+                    ],
+                    max_tokens: 300,
+                    temperature: 0.7,
+                    data_sources: [{
+                        type: "azure_search",
+                        parameters: {
+                            endpoint: config.azure_search_endpoint,
+                            key: config.azure_search_api_key,
+                            index_name: config.azure_search_index_name,
+                            semantic_configuration: "default",
+                            query_type: "vector_simple_hybrid",
+                            fields_mapping: {},
+                            in_scope: true,
+                            role_information: config.azure_system_prompt,
+                            filter: null,
+                            strictness: 3,
+                            top_n_documents: 5
+                        }
+                    }]
+                };
+
+                const response = await fetch(`${config.azure_openai_endpoint}/openai/deployments/${config.azure_openai_deployment}/chat/completions?api-version=2023-06-01-preview`, {
+                    method: 'POST',
+                    headers: {
+                        'api-key': config.azure_openai_key,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                
+                let html = '<h3>📊 Результаты тестового поиска:</h3>';
+                
+                if (data.choices && data.choices[0]) {
+                    const hasContext = data.choices[0].context;
+                    if (hasContext) {
+                        html += `<div class="status success">✅ Поиск в базе знаний работает!</div>`;
+                        html += `<div class="status info">📚 Найдено документов: ${hasContext.citations ? hasContext.citations.length : 'неизвестно'}</div>`;
+                    } else {
+                        html += `<div class="status warning">⚠️ Поиск работает, но документы не найдены</div>`;
+                    }
+                    
+                    html += `<h4>Ответ AI:</h4><pre>${data.choices[0].message.content}</pre>`;
+                    
+                    if (hasContext && hasContext.citations) {
+                        html += `<h4>Источники:</h4>`;
+                        hasContext.citations.forEach((citation, i) => {
+                            html += `<div class="status info">📄 ${i+1}. ${citation.title || 'Документ'}</div>`;
+                        });
+                    }
+                } else {
+                    html += `<div class="status error">❌ Ошибка в ответе от AI: ${JSON.stringify(data)}</div>`;
+                }
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="status error">❌ Ошибка тестового поиска: ${error.message}</div>`;
+            }
+        }
+
+        // Загружаем конфигурацию при загрузке страницы
+        window.onload = loadConfig;
+    </script>
+</body>
+</html>

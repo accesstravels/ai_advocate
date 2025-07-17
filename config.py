@@ -7,6 +7,14 @@ for deployment to Azure Web App or other production environments.
 
 import os
 from typing import List
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (if it exists)
+try:
+    load_dotenv()
+except Exception:
+    # In Azure App Service, .env file might not exist - that's ok
+    pass
 
 class ProductionConfig:
     """Production configuration settings."""
@@ -30,6 +38,21 @@ class ProductionConfig:
     # Server configuration
     HOST: str = "0.0.0.0"
     PORT: int = int(os.environ.get("PORT", 8000))
+    
+    # Azure configuration from environment variables
+    AZURE_SPEECH_KEY: str = os.environ.get("AZURE_SPEECH_KEY", "")
+    AZURE_SPEECH_REGION: str = os.environ.get("AZURE_SPEECH_REGION", "")
+    AZURE_OPENAI_KEY: str = os.environ.get("AZURE_OPENAI_KEY", "")
+    AZURE_OPENAI_ENDPOINT: str = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    AZURE_OPENAI_DEPLOYMENT: str = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "")
+    AZURE_SEARCH_ENDPOINT: str = os.environ.get("AZURE_SEARCH_ENDPOINT", "")
+    AZURE_SEARCH_API_KEY: str = os.environ.get("AZURE_SEARCH_API_KEY", "")
+    AZURE_SEARCH_INDEX_NAME: str = os.environ.get("AZURE_SEARCH_INDEX_NAME", "")
+    AZURE_SYSTEM_PROMPT: str = os.environ.get("AZURE_SYSTEM_PROMPT", "")
+    AVATAR_CHARACTER: str = os.environ.get("AVATAR_CHARACTER", "")
+    AVATAR_STYLE: str = os.environ.get("AVATAR_STYLE", "")
+    VOICE_NAME: str = os.environ.get("VOICE_NAME", "")
+    STT_LOCALE: str = os.environ.get("STT_LOCALE", "")
     
     # Security headers
     SECURITY_HEADERS = {
@@ -56,6 +79,21 @@ class DevelopmentConfig:
     # Server configuration
     HOST: str = "127.0.0.1"
     PORT: int = 8000
+    
+    # Azure configuration from environment variables
+    AZURE_SPEECH_KEY: str = os.environ.get("AZURE_SPEECH_KEY", "")
+    AZURE_SPEECH_REGION: str = os.environ.get("AZURE_SPEECH_REGION", "")
+    AZURE_OPENAI_KEY: str = os.environ.get("AZURE_OPENAI_KEY", "")
+    AZURE_OPENAI_ENDPOINT: str = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    AZURE_OPENAI_DEPLOYMENT: str = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "")
+    AZURE_SEARCH_ENDPOINT: str = os.environ.get("AZURE_SEARCH_ENDPOINT", "")
+    AZURE_SEARCH_API_KEY: str = os.environ.get("AZURE_SEARCH_API_KEY", "")
+    AZURE_SEARCH_INDEX_NAME: str = os.environ.get("AZURE_SEARCH_INDEX_NAME", "")
+    AZURE_SYSTEM_PROMPT: str = os.environ.get("AZURE_SYSTEM_PROMPT", "")
+    AVATAR_CHARACTER: str = os.environ.get("AVATAR_CHARACTER", "")
+    AVATAR_STYLE: str = os.environ.get("AVATAR_STYLE", "")
+    VOICE_NAME: str = os.environ.get("VOICE_NAME", "")
+    STT_LOCALE: str = os.environ.get("STT_LOCALE", "")
 
 def get_config():
     """Get configuration based on environment."""

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простой тест чата</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 100px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .loading {
+            display: none;
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Простой тест чата (без поиска)</h1>
+        
+        <div>
+            <label for="message">Сообщение:</label>
+            <textarea 
+                id="message" 
+                placeholder="Введите ваше сообщение..."
+                onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); testChat(); }"
+            ></textarea>
+        </div>
+        
+        <button onclick="testChat()">Отправить</button>
+        
+        <div class="loading" id="loading">⏳ Отправка запроса...</div>
+        
+        <div id="response" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function testChat() {
+            const messageInput = document.getElementById('message');
+            const responseDiv = document.getElementById('response');
+            const loadingDiv = document.getElementById('loading');
+            const button = document.querySelector('button');
+            
+            const message = messageInput.value.trim();
+            if (!message) {
+                alert('Пожалуйста, введите сообщение');
+                return;
+            }
+
+            // Показать состояние загрузки
+            loadingDiv.style.display = 'block';
+            button.disabled = true;
+            responseDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'user', content: message }
+                        ],
+                        stream: false,
+                        max_tokens: 500,
+                        temperature: 0.7
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.innerHTML = `<strong>Ответ:</strong>\\n${data.response}`;
+                    responseDiv.className = 'response success';
+                } else {
+                    responseDiv.innerHTML = `<strong>Ошибка:</strong> ${data.detail || 'Неизвестная ошибка'}`;
+                    responseDiv.className = 'response error';
+                }
+
+            } catch (error) {
+                console.error('Ошибка:', error);
+                responseDiv.innerHTML = `<strong>Ошибка сети:</strong> ${error.message}`;
+                responseDiv.className = 'response error';
+            } finally {
+                // Скрыть состояние загрузки
+                loadingDiv.style.display = 'none';
+                button.disabled = false;
+                responseDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

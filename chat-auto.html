@@ -230,6 +230,9 @@
           <button id="stopSpeakingBtn" onclick="stopSpeaking()" disabled>⏹️ Остановить</button>
           <button id="clearHistoryBtn" onclick="clearChatHistory()">🗑️ Очистить историю</button>
           <div class="status" id="status">Готов к работе</div>
+          <div style="font-size: 12px; color: #666; margin-top: 5px;">
+            💡 Горячие клавиши: Ctrl+Space (микрофон), Esc (остановить речь)
+          </div>
         </div>
         
         <div class="avatar-container">
@@ -270,7 +273,39 @@
         const response = await fetch('/internal/config');
         config = await response.json();
         
-        console.log('Конфигурация загружена:', config);
+        console.log('📋 Конфигурация загружена:', config);
+        
+        // Проверяем обязательные параметры
+        const requiredParams = [
+          'azure_speech_key',
+          'azure_speech_region', 
+          'azure_openai_key',
+          'azure_openai_endpoint',
+          'azure_openai_deployment',
+          'azure_system_prompt',
+          'voice_name',
+          'stt_locale',
+          'avatar_character',
+          'avatar_style'
+        ];
+        
+        const missingParams = requiredParams.filter(param => !config[param]);
+        
+        if (missingParams.length > 0) {
+          console.error('❌ Отсутствуют обязательные параметры:', missingParams);
+          document.getElementById('loading').innerHTML = 
+            `<p>❌ Не настроены обязательные параметры:</p><ul>${missingParams.map(p => `<li>${p}</li>`).join('')}</ul><p>Проверьте файл .env</p>`;
+          return;
+        }
+        
+        console.log('✅ Все обязательные параметры настроены');
+        
+        // Проверяем опциональные параметры Azure Search
+        if (config.azure_search_endpoint && config.azure_search_api_key && config.azure_search_index_name) {
+          console.log('✅ Azure Search настроен');
+        } else {
+          console.log('⚠️ Azure Search не настроен - будет использоваться только OpenAI');
+        }
         
         // Запускаем аватар автоматически
         await startAvatarSession();
@@ -287,7 +322,7 @@
         }, 2000);
         
       } catch (error) {
-        console.error('Ошибка загрузки:', error);
+        console.error('❌ Ошибка загрузки:', error);
         document.getElementById('loading').innerHTML = '<p>❌ Ошибка загрузки. Попробуйте обновить страницу.</p>';
       }
     }
@@ -321,7 +356,23 @@
           "Continuous"
         );
         
-        const sttLocales = [config.stt_locale || 'ru-RU'];
+        // Настройки для более точного распознавания
+        speechRecognitionConfig.setProperty(
+          SpeechSDK.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs,
+          "2000"  // 2 секунды тишины перед завершением
+        );
+        
+        speechRecognitionConfig.setProperty(
+          SpeechSDK.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs,
+          "10000"  // 10 секунд ожидания начала речи
+        );
+        
+        const sttLocales = [config.stt_locale];
+        if (!sttLocales[0]) {
+          console.error('❌ STT_LOCALE не настроен в конфигурации');
+          updateStatus('❌ Язык распознавания не настроен');
+          return;
+        }
         const autoDetectSourceLanguageConfig = SpeechSDK.AutoDetectSourceLanguageConfig.fromLanguages(sttLocales);
         
         speechRecognizer = SpeechSDK.SpeechRecognizer.FromConfig(
@@ -442,8 +493,16 @@
 
     function initMessages() {
       messages = [];
-      const systemPrompt = config.azure_system_prompt || 'Ты дружелюбный AI помощник юридической фирмы.';
-      messages.push({ role: 'system', content: systemPrompt });
+      // Используем ТОЛЬКО системный промпт из Azure (переменной окружения)
+      const systemPrompt = config.azure_system_prompt;
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+        console.log('Системный промпт загружен из Azure:', systemPrompt.substring(0, 50) + '...');
+      } else {
+        console.error('ОШИБКА: Системный промпт не найден в конфигурации Azure!');
+        updateStatus('❌ Системный промпт не настроен');
+        return;
+      }
       messageInitiated = true;
     }
 
@@ -470,15 +529,53 @@
       
       updateStatus('🎤 Слушаю...');
       
+      // Промежуточное распознавание для обратной связи
+      speechRecognizer.recognizing = (s, e) => {
+        if (e.result.text) {
+          updateStatus('🎤 Слушаю: ' + e.result.text);
+          console.log('🎤 Промежуточное распознавание:', e.result.text);
+        }
+      };
+      
       speechRecognizer.recognized = async (s, e) => {
+        console.log('🎤 Событие recognized:', e);
+        console.log('🎤 Reason:', e.result.reason);
+        console.log('🎤 Text:', e.result.text);
+        
         if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
           const userQuery = e.result.text.trim();
-          if (userQuery) {
-            console.log('Распознано:', userQuery);
+          if (userQuery && userQuery.length > 2) {  // Минимум 3 символа
+            console.log('✅ Распознано успешно:', userQuery);
+            updateStatus('🔄 Обрабатываю...');
             addChatMessage('Вы', userQuery);
             await handleUserQuery(userQuery);
+          } else {
+            console.log('⚠️ Пустой или слишком короткий запрос:', userQuery);
+            updateStatus('🎤 Слушаю... (слишком короткий запрос)');
           }
+        } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
+          console.log('❌ Речь не распознана (NoMatch)');
+          updateStatus('🎤 Слушаю... (речь не распознана)');
+        } else {
+          console.log('❌ Неизвестная причина:', e.result.reason);
+          updateStatus('🎤 Слушаю... (неизвестная ошибка)');
         }
+      };
+      
+      // Обработка ошибок распознавания
+      speechRecognizer.canceled = (s, e) => {
+        console.error('❌ Распознавание отменено:', e);
+        console.error('❌ Причина отмены:', e.reason);
+        console.error('❌ Код ошибки:', e.errorCode);
+        console.error('❌ Детали ошибки:', e.errorDetails);
+        
+        updateStatus('❌ Ошибка распознавания речи');
+        addChatMessage('Система', `Ошибка распознавания: ${e.errorDetails || 'Неизвестная ошибка'}`);
+        
+        isRecording = false;
+        const btn = document.getElementById('microphoneBtn');
+        btn.textContent = '🎤 Начать разговор';
+        btn.style.background = 'linear-gradient(45deg, #3498db, #2980b9)';
       };
       
       speechRecognizer.startContinuousRecognitionAsync(() => {
@@ -511,35 +608,59 @@
 
     async function handleUserQuery(userQuery) {
       try {
+        console.log('🔄 Начинаю обработку запроса:', userQuery);
         updateStatus('🤔 Думаю...');
         
         messages.push({ role: 'user', content: userQuery });
+        console.log('📝 Добавил сообщение в историю. Всего сообщений:', messages.length);
         
-        const response = await fetch(`${config.azure_openai_endpoint}/openai/deployments/${config.azure_openai_deployment}/chat/completions?api-version=2023-06-01-preview`, {
+        // Отправляем запрос на наш собственный эндпоинт
+        const requestBody = {
+          messages: messages,
+          stream: false,
+          max_tokens: 500,
+          temperature: 0.7
+        };
+        
+        console.log('� Отправляю запрос на /chat эндпоинт...');
+        const response = await fetch('/chat', {
           method: 'POST',
           headers: {
-            'api-key': config.azure_openai_key,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            messages: messages,
-            stream: false,
-            max_tokens: 500,
-            temperature: 0.7
-          })
+          body: JSON.stringify(requestBody)
         });
         
+        console.log('📥 Получен ответ от /chat. Status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Ошибка HTTP:', response.status, response.statusText);
+          console.error('❌ Детали ошибки:', errorText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
+        }
+        
         const data = await response.json();
-        const assistantReply = data.choices[0].message.content;
+        console.log('� Данные ответа:', data);
         
-        messages.push({ role: 'assistant', content: assistantReply });
-        
-        addChatMessage('AI Юрист', assistantReply);
-        speak(assistantReply);
+        if (data.status === 'success' && data.response) {
+          const assistantReply = data.response;
+          
+          console.log('🤖 Ответ AI:', assistantReply);
+          messages.push({ role: 'assistant', content: assistantReply });
+          
+          addChatMessage('AI Юрист', assistantReply);
+          speak(assistantReply);
+          
+        } else {
+          throw new Error('Некорректный ответ от сервера');
+        }
         
       } catch (error) {
-        console.error('Ошибка обработки запроса:', error);
-        updateStatus('❌ Ошибка обработки');
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА в handleUserQuery:', error);
+        console.error('❌ Стек ошибки:', error.stack);
+        updateStatus('❌ Ошибка обработки запроса');
+        addChatMessage('Система', `Ошибка: ${error.message}`);
         speak('Извините, произошла ошибка. Попробуйте еще раз.');
       }
     }
@@ -547,27 +668,35 @@
     function speak(text) {
       if (!avatarSynthesizer) return;
       
-      updateStatus('💬 Говорю...');
-      
-      const voiceName = config.voice_name || 'ru-RU-SvetlanaNeural';
-      
-      // Добавляем SSML для нормальной скорости речи
-      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ru-RU'>
-                      <voice name='${voiceName}'>
-                        <prosody rate='1.1'>
-                          ${text}
-                        </prosody>
-                      </voice>
-                    </speak>`;
-      
-      avatarSynthesizer.speakSsmlAsync(ssml)
-        .then(() => {
-          updateStatus('✅ Готов к работе');
-        })
-        .catch(error => {
-          console.error('Ошибка речи:', error);
-          updateStatus('❌ Ошибка речи');
-        });
+      // Добавляем небольшую задержку чтобы не перебивать пользователя
+      setTimeout(() => {
+        updateStatus('💬 Говорю...');
+        
+        const voiceName = config.voice_name;
+        if (!voiceName) {
+          console.error('❌ VOICE_NAME не настроен в конфигурации');
+          updateStatus('❌ Голос не настроен');
+          return;
+        }
+        
+        // Добавляем SSML для нормальной скорости речи
+        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${config.stt_locale || 'ru-RU'}'>
+                        <voice name='${voiceName}'>
+                          <prosody rate='1.1'>
+                            ${text}
+                          </prosody>
+                        </voice>
+                      </speak>`;
+        
+        avatarSynthesizer.speakSsmlAsync(ssml)
+          .then(() => {
+            updateStatus('✅ Готов к работе');
+          })
+          .catch(error => {
+            console.error('Ошибка речи:', error);
+            updateStatus('❌ Ошибка речи');
+          });
+      }, 500); // Задержка 500ms чтобы не перебивать пользователя
     }
 
     function stopSpeaking() {
@@ -615,6 +744,18 @@
     window.addEventListener('error', (event) => {
       console.error('Глобальная ошибка:', event.error);
       updateStatus('❌ Произошла ошибка');
+    });
+
+    // Обработка клавиш для удобства
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' && event.ctrlKey) {
+        event.preventDefault();
+        toggleMicrophone();
+      }
+      if (event.code === 'Escape') {
+        event.preventDefault();
+        stopSpeaking();
+      }
     });
   </script>
 </body>

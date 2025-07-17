@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест векторной базы данных</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f4f8;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .test-section h2 {
+            color: #495057;
+            margin-top: 0;
+        }
+        .config-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .config-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .config-value {
+            color: #28a745;
+            font-family: monospace;
+        }
+        .config-empty {
+            color: #dc3545;
+            font-style: italic;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .test-result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .question-examples {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ffeaa7;
+            margin-top: 20px;
+        }
+        .question-examples h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .question-examples ul {
+            color: #856404;
+            margin-bottom: 0;
+        }
+        .question-examples li {
+            margin-bottom: 5px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .question-examples li:hover {
+            background: rgba(133, 100, 4, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Тест векторной базы данных</h1>
+        
+        <div class="test-section">
+            <h2>📋 Конфигурация Azure Search</h2>
+            <div id="config-display">
+                <div class="config-item">
+                    <span class="config-label">Загрузка конфигурации...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>💬 Тест с векторным поиском</h2>
+            <p>Задайте вопрос, который должен найти информацию в вашей базе знаний:</p>
+            <textarea id="question" placeholder="Например: Какие документы нужны для развода?" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;"></textarea>
+            <button class="test-button" onclick="testVectorSearch()">🔍 Протестировать поиск</button>
+            <div id="search-result" class="test-result"></div>
+        </div>
+
+        <div class="question-examples">
+            <h3>💡 Примеры вопросов для теста:</h3>
+            <ul>
+                <li onclick="setQuestion('Какие документы нужны для развода?')">Какие документы нужны для развода?</li>
+                <li onclick="setQuestion('Как подать на алименты?')">Как подать на алименты?</li>
+                <li onclick="setQuestion('Что такое брачный договор?')">Что такое брачный договор?</li>
+                <li onclick="setQuestion('Какие права у арендатора?')">Какие права у арендатора?</li>
+                <li onclick="setQuestion('Как оформить наследство?')">Как оформить наследство?</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let config = {};
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/internal/config');
+                if (response.ok) {
+                    config = await response.json();
+                    displayConfig();
+                } else {
+                    displayConfigError('Не удалось загрузить конфигурацию');
+                }
+            } catch (error) {
+                displayConfigError('Ошибка загрузки конфигурации: ' + error.message);
+            }
+        }
+
+        function displayConfig() {
+            const configDiv = document.getElementById('config-display');
+            
+            const items = [
+                { label: 'Azure Search Endpoint', value: config.azure_search_endpoint },
+                { label: 'Azure Search Index Name', value: config.azure_search_index_name },
+                { label: 'Azure Search API Key', value: config.azure_search_api_key ? '***скрыт***' : '' },
+                { label: 'Azure OpenAI Endpoint', value: config.azure_openai_endpoint },
+                { label: 'Azure OpenAI Deployment', value: config.azure_openai_deployment },
+                { label: 'Azure OpenAI Key', value: config.azure_openai_key ? '***скрыт***' : '' }
+            ];
+
+            configDiv.innerHTML = items.map(item => `
+                <div class="config-item">
+                    <span class="config-label">${item.label}:</span>
+                    <span class="${item.value ? 'config-value' : 'config-empty'}">
+                        ${item.value || 'не настроено'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function displayConfigError(message) {
+            const configDiv = document.getElementById('config-display');
+            configDiv.innerHTML = `
+                <div class="config-item">
+                    <span class="config-empty">${message}</span>
+                </div>
+            `;
+        }
+
+        function setQuestion(question) {
+            document.getElementById('question').value = question;
+        }
+
+        async function testVectorSearch() {
+            const question = document.getElementById('question').value.trim();
+            const resultDiv = document.getElementById('search-result');
+            const button = document.querySelector('.test-button');
+            
+            if (!question) {
+                alert('Введите вопрос для поиска');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = '🔍 Ищу...';
+            resultDiv.style.display = 'none';
+
+            try {
+                const requestBody = {
+                    messages: [
+                        { role: 'system', content: 'Ты помощник юридической фирмы. Используй информацию из базы знаний для ответа.' },
+                        { role: 'user', content: question }
+                    ],
+                    stream: false,
+                    max_tokens: 800,
+                    temperature: 0.3
+                };
+
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === 'success' && data.response) {
+                    resultDiv.innerHTML = `
+                        <strong>✅ Ответ из базы знаний:</strong><br><br>
+                        ${data.response.replace(/\n/g, '<br>')}
+                    `;
+                    resultDiv.className = 'test-result success';
+                } else {
+                    resultDiv.innerHTML = `
+                        <strong>❌ Ошибка:</strong><br>
+                        Некорректный ответ от сервера
+                    `;
+                    resultDiv.className = 'test-result error';
+                }
+
+                resultDiv.style.display = 'block';
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <strong>❌ Ошибка поиска:</strong><br>
+                    ${error.message}
+                `;
+                resultDiv.className = 'test-result error';
+                resultDiv.style.display = 'block';
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔍 Протестировать поиск';
+            }
+        }
+
+        // Загружаем конфигурацию при загрузке страницы
+        window.onload = loadConfig;
+    </script>
+</body>
+</html>
