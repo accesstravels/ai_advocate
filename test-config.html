@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Config API</title>
+</head>
+<body>
+    <h1>Test Configuration API</h1>
+    <button onclick="testPublicConfig()">Test Public Config</button>
+    <button onclick="testInternalConfig()">Test Internal Config</button>
+    <div id="result"></div>
+
+    <script>
+        async function testPublicConfig() {
+            try {
+                const response = await fetch('/config');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Public Config:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+
+        async function testInternalConfig() {
+            try {
+                const response = await fetch('/internal/config');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Internal Config:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Юрист - Владимир Миллер</title>
+  <link href="./css/style.css" rel="stylesheet" />
+  <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+  <script src="./js/chat.js"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: #2c3e50;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      color: #2c3e50;
+    }
+    
+    .subtitle {
+      font-size: 1.2em;
+      margin-bottom: 30px;
+      opacity: 0.8;
+      color: #34495e;
+    }
+    
+    .chat-container {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .avatar-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 30px;
+      margin-top: 20px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      min-width: 250px;
+      max-width: 300px;
+    }
+    
+    .avatar-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 15px;
+      overflow: hidden;
+      border: 2px solid rgba(0,0,0,0.1);
+    }
+    
+    .chat-sidebar {
+      width: 350px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    button {
+      background: linear-gradient(45deg, #3498db, #2980b9);
+      border: none;
+      padding: 15px 25px;
+      border-radius: 25px;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      background: linear-gradient(45deg, #2980b9, #3498db);
+    }
+    
+    button:disabled {
+      background: rgba(149, 165, 166, 0.7);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .status {
+      padding: 15px;
+      background: rgba(52, 152, 219, 0.1);
+      border-radius: 10px;
+      margin-top: 15px;
+      font-size: 14px;
+      color: #2c3e50;
+      border: 1px solid rgba(52, 152, 219, 0.2);
+    }
+    
+    .chat-sidebar {
+      width: 300px;
+      max-height: 600px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+      border: 1px solid #e1e8ed;
+    }
+    
+    .chat-sidebar h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      font-size: 18px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    
+    .chat-history {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+    
+    .chat-history::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .chat-history::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    .chat-history::-webkit-scrollbar-thumb {
+      background: #3498db;
+      border-radius: 10px;
+    }
+    
+    .chat-message {
+      margin-bottom: 15px;
+      padding: 12px;
+      border-radius: 10px;
+      max-width: 100%;
+      word-wrap: break-word;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      line-height: 1.4;
+    }
+    
+    .message.user {
+      background: rgba(52, 152, 219, 0.1);
+      border-left: 4px solid #3498db;
+    }
+    
+    .message.assistant {
+      background: rgba(46, 204, 113, 0.1);
+      border-left: 4px solid #2ecc71;
+    }
+    
+    .message strong {
+      color: #2c3e50;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #2c3e50;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🏛️ AI Юрист</h1>
+    <p class="subtitle">Юридическая консультация от фирмы Владимира Миллера</p>
+    
+    <div class="chat-container">
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Загружаем AI юриста...</p>
+      </div>
+      
+      <div class="avatar-section" id="mainContent" style="display: none;">
+        <div class="controls">
+          <button id="microphoneBtn" onclick="toggleMicrophone()">🎤 Начать разговор</button>
+          <button id="stopSpeakingBtn" onclick="stopSpeaking()" disabled>⏹️ Остановить</button>
+          <button id="clearHistoryBtn" onclick="clearChatHistory()">🗑️ Очистить историю</button>
+          <div class="status" id="status">Готов к работе</div>
+        </div>
+        
+        <div class="avatar-container">
+          <div id="remoteVideo" style="width: 100%; height: 100%;"></div>
+          <div id="subtitles" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #2c3e50; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; margin: 10px; font-weight: bold;" hidden></div>
+        </div>
+        
+        <div class="chat-sidebar">
+          <h3>💬 История разговора</h3>
+          <div id="chatHistory" class="chat-history"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Глобальные переменные
+    var speechRecognizer;
+    var avatarSynthesizer;
+    var peerConnection;
+    var messages = [];
+    var messageInitiated = false;
+    var dataSources = [];
+    var isSpeaking = false;
+    var sessionActive = false;
+    var isRecording = false;
+    var config = {};
+
+    // Автоматический запуск при загрузке страницы
+    window.onload = function() {
+      document.getElementById('loading').style.display = 'block';
+      loadConfigurationAndStart();
+    };
+
+    async function loadConfigurationAndStart() {
+      try {
+        // Загружаем конфигурацию
+        const response = await fetch('/internal/config');
+        config = await response.json();
+        
+        console.log('Конфигурация загружена:', config);
+        
+        // Запускаем аватар автоматически
+        await startAvatarSession();
+        
+        // Показываем интерфейс
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'flex';
+        
+        // Автоматически включаем микрофон через 2 секунды
+        setTimeout(() => {
+          if (sessionActive) {
+            toggleMicrophone();
+          }
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        document.getElementById('loading').innerHTML = '<p>❌ Ошибка загрузки. Попробуйте обновить страницу.</p>';
+      }
+    }
+
+    async function startAvatarSession() {
+      try {
+        updateStatus('Подключаемся к AI юристу...');
+        
+        // Настройка Speech SDK
+        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+          config.azure_speech_key, 
+          config.azure_speech_region
+        );
+        
+        // Настройка аватара
+        const avatarConfig = new SpeechSDK.AvatarConfig(
+          config.avatar_character || 'lisa', 
+          config.avatar_style || 'casual'
+        );
+        
+        avatarSynthesizer = new SpeechSDK.AvatarSynthesizer(speechConfig, avatarConfig);
+        
+        // Настройка распознавания речи
+        const speechRecognitionConfig = SpeechSDK.SpeechConfig.fromEndpoint(
+          new URL(`wss://${config.azure_speech_region}.stt.speech.microsoft.com/speech/universal/v2`),
+          config.azure_speech_key
+        );
+        
+        speechRecognitionConfig.setProperty(
+          SpeechSDK.PropertyId.SpeechServiceConnection_LanguageIdMode,
+          "Continuous"
+        );
+        
+        const sttLocales = [config.stt_locale || 'ru-RU'];
+        const autoDetectSourceLanguageConfig = SpeechSDK.AutoDetectSourceLanguageConfig.fromLanguages(sttLocales);
+        
+        speechRecognizer = SpeechSDK.SpeechRecognizer.FromConfig(
+          speechRecognitionConfig,
+          autoDetectSourceLanguageConfig,
+          SpeechSDK.AudioConfig.fromDefaultMicrophoneInput()
+        );
+
+        // Инициализация сообщений
+        initMessages();
+        
+        // Получение токена и настройка WebRTC
+        await setupWebRTC();
+        
+      } catch (error) {
+        console.error('Ошибка запуска аватара:', error);
+        updateStatus('❌ Ошибка подключения');
+        throw error;
+      }
+    }
+
+    async function setupWebRTC() {
+      try {
+        // Получение токена
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", `https://${config.azure_speech_region}.tts.speech.microsoft.com/cognitiveservices/avatar/relay/token/v1`);
+        xhr.setRequestHeader("Ocp-Apim-Subscription-Key", config.azure_speech_key);
+        
+        xhr.onload = function() {
+          if (this.status === 200) {
+            const responseData = JSON.parse(this.responseText);
+            const iceServerUrl = responseData.Urls[0];
+            const iceServerUsername = responseData.Username;
+            const iceServerCredential = responseData.Password;
+            
+            connectAvatar(iceServerUrl, iceServerUsername, iceServerCredential);
+          } else {
+            throw new Error('Не удалось получить токен');
+          }
+        };
+        
+        xhr.send();
+        
+      } catch (error) {
+        console.error('Ошибка настройки WebRTC:', error);
+        throw error;
+      }
+    }
+
+    function connectAvatar(iceServerUrl, iceServerUsername, iceServerCredential) {
+      peerConnection = new RTCPeerConnection({
+        iceServers: [{
+          urls: [iceServerUrl],
+          username: iceServerUsername,
+          credential: iceServerCredential
+        }]
+      });
+
+      peerConnection.ontrack = (event) => {
+        if (event.track.kind === 'audio') {
+          let audioElement = document.createElement('audio');
+          audioElement.id = 'audioPlayer';
+          audioElement.srcObject = event.streams[0];
+          audioElement.autoplay = true;
+          
+          const remoteDiv = document.getElementById('remoteVideo');
+          [...remoteDiv.childNodes].forEach(node => {
+            if (node.localName === 'audio') remoteDiv.removeChild(node);
+          });
+          remoteDiv.appendChild(audioElement);
+          
+        } else if (event.track.kind === 'video') {
+          let videoElement = document.createElement('video');
+          videoElement.id = 'videoPlayer';
+          videoElement.srcObject = event.streams[0];
+          videoElement.autoplay = true;
+          videoElement.playsInline = true;
+          videoElement.style.width = '100%';
+          videoElement.style.height = '100%';
+          videoElement.style.objectFit = 'cover';
+          
+          videoElement.onplaying = () => {
+            console.log('Аватар подключен');
+            const remoteDiv = document.getElementById('remoteVideo');
+            [...remoteDiv.childNodes].forEach(node => {
+              if (node.localName === 'video') remoteDiv.removeChild(node);
+            });
+            remoteDiv.appendChild(videoElement);
+            
+            sessionActive = true;
+            updateStatus('✅ AI юрист готов к работе');
+            
+            // Приветственное сообщение
+            setTimeout(() => {
+              speak('Здравствуйте! Я AI помощник юридической фирмы Владимира Миллера. Готов помочь вам с юридическими вопросами. Как дела?');
+            }, 1000);
+          };
+        }
+      };
+
+      peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+      peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+
+      avatarSynthesizer.startAvatarAsync(peerConnection)
+        .then(result => {
+          if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+            console.log('Аватар запущен успешно');
+          } else {
+            console.error('Ошибка запуска аватара:', result);
+            updateStatus('❌ Ошибка запуска аватара');
+          }
+        })
+        .catch(error => {
+          console.error('Ошибка запуска аватара:', error);
+          updateStatus('❌ Ошибка запуска аватара');
+        });
+    }
+
+    function initMessages() {
+      messages = [];
+      const systemPrompt = config.azure_system_prompt || 'Ты дружелюбный AI помощник юридической фирмы.';
+      messages.push({ role: 'system', content: systemPrompt });
+      messageInitiated = true;
+    }
+
+    function toggleMicrophone() {
+      const btn = document.getElementById('microphoneBtn');
+      
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+
+    function startRecording() {
+      if (!sessionActive) {
+        updateStatus('❌ Аватар не готов');
+        return;
+      }
+      
+      isRecording = true;
+      const btn = document.getElementById('microphoneBtn');
+      btn.textContent = '⏹️ Остановить запись';
+      btn.style.background = 'linear-gradient(45deg, #ff4757, #ff3838)';
+      
+      updateStatus('🎤 Слушаю...');
+      
+      speechRecognizer.recognized = async (s, e) => {
+        if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+          const userQuery = e.result.text.trim();
+          if (userQuery) {
+            console.log('Распознано:', userQuery);
+            addChatMessage('Вы', userQuery);
+            await handleUserQuery(userQuery);
+          }
+        }
+      };
+      
+      speechRecognizer.startContinuousRecognitionAsync(() => {
+        console.log('Запись начата');
+      }, (err) => {
+        console.error('Ошибка записи:', err);
+        updateStatus('❌ Ошибка микрофона');
+        isRecording = false;
+        btn.textContent = '🎤 Начать разговор';
+        btn.style.background = 'linear-gradient(45deg, #ff6b6b, #ffa500)';
+      });
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      
+      isRecording = false;
+      const btn = document.getElementById('microphoneBtn');
+      btn.textContent = '🎤 Начать разговор';
+      btn.style.background = 'linear-gradient(45deg, #ff6b6b, #ffa500)';
+      
+      updateStatus('⏹️ Запись остановлена');
+      
+      speechRecognizer.stopContinuousRecognitionAsync(() => {
+        console.log('Запись остановлена');
+      }, (err) => {
+        console.error('Ошибка остановки записи:', err);
+      });
+    }
+
+    async function handleUserQuery(userQuery) {
+      try {
+        updateStatus('🤔 Думаю...');
+        
+        messages.push({ role: 'user', content: userQuery });
+        
+        const response = await fetch(`${config.azure_openai_endpoint}/openai/deployments/${config.azure_openai_deployment}/chat/completions?api-version=2023-06-01-preview`, {
+          method: 'POST',
+          headers: {
+            'api-key': config.azure_openai_key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: messages,
+            stream: false,
+            max_tokens: 500,
+            temperature: 0.7
+          })
+        });
+        
+        const data = await response.json();
+        const assistantReply = data.choices[0].message.content;
+        
+        messages.push({ role: 'assistant', content: assistantReply });
+        
+        addChatMessage('AI Юрист', assistantReply);
+        speak(assistantReply);
+        
+      } catch (error) {
+        console.error('Ошибка обработки запроса:', error);
+        updateStatus('❌ Ошибка обработки');
+        speak('Извините, произошла ошибка. Попробуйте еще раз.');
+      }
+    }
+
+    function speak(text) {
+      if (!avatarSynthesizer) return;
+      
+      updateStatus('💬 Говорю...');
+      
+      const voiceName = config.voice_name || 'ru-RU-SvetlanaNeural';
+      
+      // Добавляем SSML для нормальной скорости речи
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ru-RU'>
+                      <voice name='${voiceName}'>
+                        <prosody rate='1.1'>
+                          ${text}
+                        </prosody>
+                      </voice>
+                    </speak>`;
+      
+      avatarSynthesizer.speakSsmlAsync(ssml)
+        .then(() => {
+          updateStatus('✅ Готов к работе');
+        })
+        .catch(error => {
+          console.error('Ошибка речи:', error);
+          updateStatus('❌ Ошибка речи');
+        });
+    }
+
+    function stopSpeaking() {
+      if (avatarSynthesizer) {
+        avatarSynthesizer.stopSpeakingAsync();
+        updateStatus('⏹️ Речь остановлена');
+      }
+    }
+
+    function clearChatHistory() {
+      document.getElementById('chatHistory').innerHTML = '';
+      initMessages();
+      updateStatus('🗑️ История очищена');
+    }
+
+    function addChatMessage(sender, message) {
+      const chatHistory = document.getElementById('chatHistory');
+      const messageElement = document.createElement('div');
+      messageElement.className = 'chat-message';
+      
+      if (sender === 'Вы') {
+        messageElement.style.background = '#e3f2fd';
+        messageElement.style.borderLeft = '4px solid #2196f3';
+        messageElement.style.marginLeft = '20px';
+      } else {
+        messageElement.style.background = '#f3e5f5';
+        messageElement.style.borderLeft = '4px solid #9c27b0';
+        messageElement.style.marginRight = '20px';
+      }
+      
+      messageElement.innerHTML = `
+        <div style="color: #666; font-size: 12px; margin-bottom: 5px;">${sender}</div>
+        <div style="color: #2c3e50;">${message}</div>
+      `;
+      
+      chatHistory.appendChild(messageElement);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+    }
+
+    // Обработка ошибок
+    window.addEventListener('error', (event) => {
+      console.error('Глобальная ошибка:', event.error);
+      updateStatus('❌ Произошла ошибка');
+    });
+  </script>
+</body>
+</html>

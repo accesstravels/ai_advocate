@@ -1,0 +1,34 @@
+# Azure Developer CLI (azd) configuration file
+# This file configures Azure resources and deployment settings for the AI Avatar application
+
+name: azure-ai-avatar-config
+metadata:
+  template: azure-ai-avatar-config@0.0.1-beta
+
+# Infrastructure configuration
+infra:
+  provider: bicep
+  path: infra
+
+# Services configuration
+services:
+  azure-ai-avatar-config:
+    project: .
+    host: appservice
+    language: python
+    port: 8000
+    # Environment variables will be set automatically from infrastructure outputs
+    env:
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION}
+      AZURE_OPENAI_KEY: ${AZURE_OPENAI_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT}
+      AZURE_SYSTEM_PROMPT: ${AZURE_SYSTEM_PROMPT}
+      AZURE_SEARCH_ENDPOINT: ${AZURE_SEARCH_ENDPOINT}
+      AZURE_SEARCH_API_KEY: ${AZURE_SEARCH_API_KEY}
+      AZURE_SEARCH_INDEX_NAME: ${AZURE_SEARCH_INDEX_NAME}
+      AVATAR_CHARACTER: ${AVATAR_CHARACTER}
+      AVATAR_STYLE: ${AVATAR_STYLE}
+      VOICE_NAME: ${VOICE_NAME}
+      STT_LOCALE: ${STT_LOCALE}

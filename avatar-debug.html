@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Avatar Debug Test</title>
+  <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+</head>
+<body>
+  <h1>Avatar Debug Test</h1>
+  <button onclick="testConfiguration()">Test Configuration</button>
+  <button onclick="testAvatarConnection()">Test Avatar Connection</button>
+  <div id="debug-info"></div>
+
+  <script>
+    async function testConfiguration() {
+      try {
+        const response = await fetch('/internal/config');
+        const config = await response.json();
+        
+        const debugDiv = document.getElementById('debug-info');
+        debugDiv.innerHTML = `
+          <h3>Configuration Test:</h3>
+          <p>Speech Key: ${config.azure_speech_key ? config.azure_speech_key.substring(0, 10) + '...' : 'MISSING'}</p>
+          <p>Speech Region: ${config.azure_speech_region || 'MISSING'}</p>
+          <p>OpenAI Key: ${config.azure_openai_key ? config.azure_openai_key.substring(0, 10) + '...' : 'MISSING'}</p>
+          <p>OpenAI Endpoint: ${config.azure_openai_endpoint || 'MISSING'}</p>
+          <p>OpenAI Deployment: ${config.azure_openai_deployment || 'MISSING'}</p>
+          <p>Avatar Character: ${config.avatar_character || 'MISSING'}</p>
+          <p>Avatar Style: ${config.avatar_style || 'MISSING'}</p>
+          <p>Voice Name: ${config.voice_name || 'MISSING'}</p>
+          <p>STT Locale: ${config.stt_locale || 'MISSING'}</p>
+        `;
+      } catch (error) {
+        document.getElementById('debug-info').innerHTML = `<p>Error: ${error.message}</p>`;
+      }
+    }
+
+    async function testAvatarConnection() {
+      try {
+        const response = await fetch('/internal/config');
+        const config = await response.json();
+        
+        // Test Speech SDK
+        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+          config.azure_speech_key, 
+          config.azure_speech_region
+        );
+        
+        const avatarConfig = new SpeechSDK.AvatarConfig(
+          config.avatar_character, 
+          config.avatar_style
+        );
+        
+        const avatarSynthesizer = new SpeechSDK.AvatarSynthesizer(speechConfig, avatarConfig);
+        
+        document.getElementById('debug-info').innerHTML = `
+          <h3>Avatar Connection Test:</h3>
+          <p>✅ Speech SDK loaded successfully</p>
+          <p>✅ Avatar config created: ${config.avatar_character} (${config.avatar_style})</p>
+          <p>✅ Avatar synthesizer initialized</p>
+          <p>Next step: Try connecting to avatar service</p>
+        `;
+        
+      } catch (error) {
+        document.getElementById('debug-info').innerHTML = `
+          <h3>Avatar Connection Test:</h3>
+          <p>❌ Error: ${error.message}</p>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
